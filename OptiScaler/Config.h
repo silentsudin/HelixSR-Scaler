@@ -391,6 +391,11 @@ class Config
     // Sharpening is OptiScaler's (RCAS, [Sharpness] and [CAS]); HelixSR's own sharpener stays off.
     CustomOptional<std::string, NoDefault> HelixSRInt8; // on, off (auto: HelixSR decides by the GPU)
     CustomOptional<int, NoDefault> HelixSRWaveSize;     // 64, 32
+    // Which DLSS network preset HelixSR's upscaler runs ([HelixSR] NetworkPreset): the NGX render-preset integer,
+    // 11 = K. Only K is buildable -- HelixSR's setup reads its 134 tensors out of NVIDIA's DLL. L and M (12, 13) are
+    // 2nd-gen transformers whose weights are not in the DLL, so they are not offered. Distinct from HelixSRFGPreset,
+    // which is the frame-generation quality. Written to helixsr.ini [Upscaling] Preset.
+    CustomOptional<int, NoDefault> HelixSRNetworkPreset;
     // HelixSR's frame generation quality ([HelixSR] FGPreset = auto | c | full): 0 Light (NVIDIA's preset C), 1 Full;
     // auto = Light. helixsr.ini [DlssFrameGeneration] Preset, read at the game start (helixsr/HelixSRFgQuality.h)
     CustomOptional<int, NoDefault> HelixSRFGPreset;

@@ -239,6 +239,7 @@ const Managed kManaged[] = { { "Upscaling", "Int8" },
                              { "Compatibility", "WaveSize" },
                              { "FrameGeneration", "QuickFlow" },
                              { "DlssFrameGeneration", "Preset" },
+                             { "Upscaling", "Preset" },
                              { "ModelE", "UseReactiveMask" } };
 // earlier keys, taken out of helixsr.ini: sharpening (OptiScaler's now) and frame generation's old mode
 const Managed kRetired[] = { { "Sharpening", "Sharpness" },
@@ -276,6 +277,10 @@ std::optional<std::string> ConfigValue(const std::string& key)
     auto cfg = Config::Instance();
     if (key == "Int8" && cfg->HelixSRInt8.has_value())
         return cfg->HelixSRInt8.value();
+    // The upscaler's network preset (11 = K). HelixSR's own default when unset. Distinct from the
+    // frame-generation "Preset" above, which is Light/Full.
+    if (key == "Preset" && cfg->HelixSRNetworkPreset.has_value())
+        return std::to_string(cfg->HelixSRNetworkPreset.value());
     if (key == "WaveSize" && cfg->HelixSRWaveSize.has_value())
         return std::to_string(cfg->HelixSRWaveSize.value());
     // Frame generation quality (HelixSRFgQuality.h): Light (preset C, the default) or Full; QuickFlow only with Full,
@@ -382,6 +387,19 @@ void ImportHelixIni()
             if (auto p = FgQuality::ParsePreset(v.value()); p.has_value())
                 cfg->HelixSRFGPreset = (int) p.value();
         }
+        // the upscaler's network preset (11 = K), an integer; migrate it to [HelixSR] NetworkPreset
+        if (auto v = old.Get("Upscaling", "Preset"); v.has_value())
+        {
+            try
+            {
+                const int n = std::stoi(v.value());
+                if (n > 0 && n < 16)
+                    cfg->HelixSRNetworkPreset = n;
+            }
+            catch (...)
+            {
+            }
+        }
         LOG_INFO("HelixSR Scaler: moved the settings in helixsr.ini to OptiScaler.ini");
     }
 
@@ -430,6 +448,9 @@ Settings ReadSettings()
     if (cfg->HelixSRWaveSize.has_value())
         s.wave = cfg->HelixSRWaveSize.value() == 64 ? 1 : cfg->HelixSRWaveSize.value() == 32 ? 2 : 0;
 
+    if (cfg->HelixSRNetworkPreset.has_value())
+        s.net = cfg->HelixSRNetworkPreset.value();
+
     // On: OptiScaler.ini has HelixSR as the frame-generation provider (FGInput = nvngxfg, FGNvngxReplacement = HelixSR)
     s.frameGen = HelixSRFgConfigured() ? 0 : 1;
 
@@ -446,6 +467,7 @@ bool WriteSettings(const Settings& s)
     cfg->HelixSRWaveSize = s.wave == 1   ? std::optional<int>(64)
                            : s.wave == 2 ? std::optional<int>(32)
                                          : std::optional<int>();
+    cfg->HelixSRNetworkPreset = s.net == 0 ? std::optional<int>() : std::optional<int>(s.net);
 
     const bool opti = WriteOptiScalerIni();
     const bool helix = WriteHelixIni();
@@ -614,6 +636,8 @@ void SaveMenuSettings()
     if (m.settings.frameGen != m.saved.frameGen)
         SetHelixSRFg(m.settings.frameGen == 0);
     m.saveFailed = !WriteSettings(m.settings);
+    if (!m.saveFailed && m.settings.net != m.initial.net)
+        m.restartNeeded = true;
     if (!m.saveFailed)
         m.restartNeeded = m.settings.int8 != m.initial.int8 || m.settings.wave != m.initial.wave ||
                           m.settings.frameGen != m.initial.frameGen;
@@ -1212,6 +1236,23 @@ void RenderSettings(float scale, ImVec4 (*color)(const ImVec4&))
     const auto& status = m.status;
     const float labelWidth = 130.0f * scale;
     bool changed = false;
+
+    // Network preset: only K (11) is listed. HelixSR's setup builds its network from the 134 tensors in NVIDIA's
+    // DLL, and those are preset K's; L and M (12, 13) are 2nd-gen transformers whose weights are not in the DLL, so
+    // offering them would install a network HelixSR cannot build.
+    {
+        static const char* const kNet[] = { "Auto", "K (1st-gen transformer)" };
+        static const int kNetVal[] = { 0, 11 };
+        int net = 0;
+        for (int i = 0; i < 2; i++)
+            if (settings.net == kNetVal[i])
+                net = i;
+        if (Choice("Network preset", &net, kNet, 2, labelWidth))
+        {
+            settings.net = kNetVal[net];
+            changed = true;
+        }
+    }
 
     changed |= Choice("Speed boost", &settings.int8, kInt8, kInt8Count, labelWidth);
     Help(kInt8Help);

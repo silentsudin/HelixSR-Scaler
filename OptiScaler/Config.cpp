@@ -495,6 +495,18 @@ bool Config::Reload(std::filesystem::path iniPath)
 
             // HelixSR Scaler: HelixSR's settings
             HelixSRInt8.set_from_config(readString("HelixSR", "Int8", true));
+            // NetworkPreset is an integer (11 = K) but the ini's default is the word auto: read it as a string and
+            // parse, so auto means "leave HelixSR's own default" and a stray value cannot crash the parse.
+            if (auto np = readString("HelixSR", "NetworkPreset", true); np.has_value())
+            {
+                try
+                {
+                    HelixSRNetworkPreset.set_from_config(std::optional<int>(std::stoi(np.value())));
+                }
+                catch (...)
+                {
+                }
+            }
             HelixSRWaveSize.set_from_config(readInt("HelixSR", "WaveSize"));
             HelixSRVulkanComputeQueue.set_from_config(readBool("HelixSR", "VulkanComputeQueue"));
             if (auto preset = readString("HelixSR", "FGPreset", true); preset.has_value())
@@ -1337,6 +1349,9 @@ bool Config::SaveIni()
 
         // HelixSR Scaler: HelixSR's settings
         ini.SetValue("HelixSR", "Int8", Instance()->HelixSRInt8.value_for_config_or("auto").c_str());
+        if (Instance()->HelixSRNetworkPreset.has_value())
+            ini.SetValue("HelixSR", "NetworkPreset",
+                         std::to_string(Instance()->HelixSRNetworkPreset.value()).c_str());
         ini.SetValue("HelixSR", "WaveSize", GetIntValue(Instance()->HelixSRWaveSize.value_for_config()).c_str());
         if (auto vcq = Instance()->HelixSRVulkanComputeQueue.value_for_config(); vcq.has_value())
             ini.SetValue("HelixSR", "VulkanComputeQueue", vcq.value() ? "true" : "false");

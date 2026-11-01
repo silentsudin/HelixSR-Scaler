@@ -18,6 +18,7 @@ struct Settings
     int int8 = 0;     // Auto, On, Off
     int wave = 0;     // Auto, 64, 32
     int frameGen = 0; // On, Off: HelixSR as the frame-generation provider in OptiScaler.ini
+    int net = 0;      // network preset: 0 Auto, 11 K (only K is buildable; L/M have no weights in the DLL)
 };
 
 // The last start of the upscaler, from helixsr.log
