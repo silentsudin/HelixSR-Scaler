@@ -1350,8 +1350,7 @@ bool Config::SaveIni()
         // HelixSR Scaler: HelixSR's settings
         ini.SetValue("HelixSR", "Int8", Instance()->HelixSRInt8.value_for_config_or("auto").c_str());
         if (Instance()->HelixSRNetworkPreset.has_value())
-            ini.SetValue("HelixSR", "NetworkPreset",
-                         std::to_string(Instance()->HelixSRNetworkPreset.value()).c_str());
+            ini.SetValue("HelixSR", "NetworkPreset", std::to_string(Instance()->HelixSRNetworkPreset.value()).c_str());
         ini.SetValue("HelixSR", "WaveSize", GetIntValue(Instance()->HelixSRWaveSize.value_for_config()).c_str());
         if (auto vcq = Instance()->HelixSRVulkanComputeQueue.value_for_config(); vcq.has_value())
             ini.SetValue("HelixSR", "VulkanComputeQueue", vcq.value() ? "true" : "false");
